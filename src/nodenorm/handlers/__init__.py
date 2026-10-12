@@ -16,11 +16,11 @@ def build_handlers() -> dict[str, tuple[str, Callable]]:
     from nodenorm.handlers.version import VersionHandler
 
     handler_collection = [
-        (r"/get_allowed_conflations?", ValidConflationsHandler),
-        (r"/get_normalized_nodes?", NormalizedNodesHandler),
-        (r"/get_semantic_types?", SemanticTypeHandler),
-        (r"/get_setid?", SetIdentifierHandler),
-        (r"/status?", NodeNormHealthHandler),
+        (r"/get_allowed_conflations", ValidConflationsHandler),
+        (r"/get_normalized_nodes", NormalizedNodesHandler),
+        (r"/get_semantic_types", SemanticTypeHandler),
+        (r"/get_setid", SetIdentifierHandler),
+        (r"/status", NodeNormHealthHandler),
         (r"/version", VersionHandler),
     ]
     # build static file frontend

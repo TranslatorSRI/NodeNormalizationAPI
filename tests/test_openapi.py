@@ -31,7 +31,7 @@ SPEC = json.loads((importlib.resources.files(nodenorm) / "webapp" / "openapi.jso
 
 # Only the handlers that answer the API itself: not the static files, index or redirects.
 API_HANDLERS = {
-    pattern.rstrip("?"): handler
+    pattern: handler
     for pattern, handler, *_ in build_handlers().values()
     if isinstance(handler, type) and issubclass(handler, NodeNormalizationBaseHandler)
 }
@@ -100,6 +100,11 @@ class TestOpenAPIRedirect(AsyncHTTPTestCase):
 
     def test_only_the_exact_path_redirects(self):
         assert self.fetch("/openapiXjson", follow_redirects=False).code == 404
+
+    def test_api_paths_are_matched_exactly(self):
+        # Regression: patterns like r"/get_setid?" made the last letter optional, so /get_seti was routed.
+        for path in API_HANDLERS:
+            assert self.fetch(path[:-1]).code == 404, path
 
 
 class TestAllowedConflations(AsyncHTTPTestCase):
