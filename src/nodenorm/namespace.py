@@ -211,9 +211,8 @@ class NodeNormalizationAPINamespace:
         Loads the default configuration file found in ~/src/nodenorm/config/config.default.json
         to create a base structure. It then checks if an optional configuration file was provided
         via the command line options. We override the default configuration file with this option
-        based file, merging nested sections key by key (see merge_configuration). After that, we
-        setup our static path structure for loading the webapp containing our swaggerui frontend.
-        We check any other command line options and then return our configuration data structure
+        based file, merging nested sections key by key (see merge_configuration). We then check
+        any other command line options and return our configuration data structure
         """
         # note we have to use this format as relative paths were only supported for
         # importlib.resources.read_text in python3.13
@@ -228,12 +227,8 @@ class NodeNormalizationAPINamespace:
                 with open(optional_configuration, "r", encoding="utf-8") as handle:
                     configuration = merge_configuration(configuration, json.load(handle))
 
-        # Force the static path to the webapp directory
-        package_directory = importlib.resources.files(nodenorm)
-        webapp_directory = package_directory.joinpath("webapp")
-        configuration["webserver"]["SETTINGS"]["static_path"] = str(webapp_directory)
-        configuration["webserver"]["SETTINGS"]["static_url_prefix"] = "/"
-
+        # build_handlers() serves / and /webapp/ itself. Don't set Tornado's static_path here: with
+        # a static_url_prefix of "/", Tornado adds a catch-all route ahead of every API handler.
         configuration_namespace = types.SimpleNamespace(**configuration)
 
         # override options
