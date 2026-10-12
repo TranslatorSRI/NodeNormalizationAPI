@@ -4,7 +4,30 @@ over the packaged default (src/nodenorm/config/config.default.json), so it holds
 settings the deployment changes.
 """
 
-from nodenorm.namespace import merge_configuration
+import json
+import pathlib
+from types import SimpleNamespace
+
+from nodenorm.namespace import NodeNormalizationAPINamespace, merge_configuration
+
+DEPLOYMENT_CONFIGURATION = pathlib.Path(__file__).parent.parent / "docker" / "configuration" / "config.json"
+
+
+def load(conf=None) -> SimpleNamespace:
+    """Run the real loader without the Elasticsearch connection the constructor makes."""
+    namespace = NodeNormalizationAPINamespace.__new__(NodeNormalizationAPINamespace)
+    namespace.default_configuration = "config.default.json"
+    return namespace.load_configuration(SimpleNamespace(conf=conf, host=None, port=None))
+
+
+def keys(configuration: dict, prefix: str = "") -> set[str]:
+    """Every key path in a configuration, such as "elasticsearch.ES_ARGS.sniff"."""
+    paths = set()
+    for key, value in configuration.items():
+        paths.add(prefix + key)
+        if isinstance(value, dict):
+            paths |= keys(value, prefix + key + ".")
+    return paths
 
 
 def test_merge_keeps_the_keys_an_override_leaves_out():
@@ -20,3 +43,19 @@ def test_merge_keeps_the_keys_an_override_leaves_out():
 def test_merge_replaces_lists_whole():
     merged = merge_configuration({"URLS": ["^/$", "^/status$"]}, {"URLS": ["^/webapp"]})
     assert merged == {"URLS": ["^/webapp"]}
+
+
+def test_deployment_configuration_only_names_settings_the_default_has():
+    # A misspelt key in the override would otherwise be added silently and change nothing.
+    default = vars(load())
+    deployment = json.loads(DEPLOYMENT_CONFIGURATION.read_text(encoding="utf-8"))
+    assert keys(deployment) <= keys(default)
+
+
+def test_deployment_configuration_is_complete():
+    default = vars(load())
+    deployed = vars(load(str(DEPLOYMENT_CONFIGURATION)))
+
+    assert keys(deployed) == keys(default)
+    assert deployed["elasticsearch"]["ES_HOST"] != default["elasticsearch"]["ES_HOST"]
+    assert deployed["telemetry"]["OPENTELEMETRY_ENABLED"] is True
