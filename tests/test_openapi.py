@@ -13,6 +13,7 @@ import inspect
 import json
 import re
 from types import SimpleNamespace
+from unittest import mock
 
 import jsonschema
 import pytest
@@ -158,6 +159,17 @@ class TestSetIDErrors(AsyncHTTPTestCase):
         result = json.loads(response.body)
         jsonschema.validate(result["0"], SPEC["components"]["schemas"]["SetIDResponse"])
         assert "Bogus" in result["0"]["error"]
+
+    def test_post_answers_a_set_with_no_curies(self):
+        # The other early return in generate_setid(); it too used to return the dataclass (HTTP 500).
+        empty_lookup = mock.AsyncMock(return_value={})
+        with mock.patch("nodenorm.handlers.set_identifiers.get_normalized_nodes", empty_lookup):
+            response = self.fetch("/get_setid", method="POST", body=json.dumps([{"curies": []}]))
+
+        assert response.code == 200
+        result = json.loads(response.body)
+        jsonschema.validate(result["0"], SPEC["components"]["schemas"]["SetIDResponse"])
+        assert result["0"]["normalized_curies"] == [] and result["0"]["setid"] is None
 
     def test_post_rejects_a_body_that_is_not_an_array_of_objects(self):
         # A single object was the documented body before; it used to fail with a 500.
