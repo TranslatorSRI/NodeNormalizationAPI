@@ -2,6 +2,7 @@
 
 import json
 
+import tornado.escape
 from biothings.web.handlers import BaseHandler
 from tornado.web import HTTPError
 
@@ -39,3 +40,13 @@ class NodeNormalizationBaseHandler(BaseHandler):
             return json.loads(self.request.body)
         except (json.JSONDecodeError, UnicodeDecodeError) as error:
             raise HTTPError(detail=f"The body is not valid JSON: {error}", status_code=400)
+
+    def write(self, chunk):
+        # Tornado refuses a top-level list ("Lists not accepted for security reasons"), a guard
+        # against JSON hijacking through <script> tags in very old browsers. This is a public
+        # JSON API that allows any origin anyway, and NodeNorm Redis returns lists, so encode a
+        # list the way Tornado encodes a dict.
+        if isinstance(chunk, list):
+            self.set_header("Content-Type", "application/json; charset=UTF-8")
+            chunk = tornado.escape.json_encode(chunk)
+        super().write(chunk)

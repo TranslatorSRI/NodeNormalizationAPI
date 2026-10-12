@@ -7,7 +7,7 @@ class ValidConflationsHandler(NodeNormalizationBaseHandler):
     name = "allowed-conflations"
 
     async def get(self):
-        # Wrapped in an object, as NodeNorm Redis does. Tornado also refuses to write a bare list.
+        # Wrapped in an object, as NodeNorm Redis does.
         self.finish({"conflations": ALLOWED_CONFLATIONS})
 
     async def head(self):
