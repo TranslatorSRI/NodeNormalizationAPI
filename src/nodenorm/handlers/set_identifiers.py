@@ -1,5 +1,6 @@
 # set_id.py
 # Code related to generating IDs for sets (as in https://github.com/TranslatorSRI/NodeNormalization/issues/256).
+import asyncio
 import dataclasses
 import logging
 import uuid
@@ -70,14 +71,19 @@ class SetIdentifierHandler(NodeNormalizationBaseHandler):
 
         release = self.select_babel_release(self.get_query_argument("babel_version", None))
 
-        # One SetIDResponse per input set, in order, as NodeNorm Redis returns.
-        set_identifiers = []
-        for group in post_body:
-            curies = group.get("curies", [])
-            conflations = group.get("conflations", [])
-            set_identifiers.append(
-                await generate_setid(self.biothings, curies, conflations, search_indices=release.search_indices)
+        # One SetIDResponse per input set, in order, as NodeNorm Redis returns. The sets are
+        # independent, so their Elasticsearch lookups run concurrently.
+        set_identifiers = await asyncio.gather(
+            *(
+                generate_setid(
+                    self.biothings,
+                    group.get("curies", []),
+                    group.get("conflations", []),
+                    search_indices=release.search_indices,
+                )
+                for group in post_body
             )
+        )
 
         self.finish(set_identifiers)
 
