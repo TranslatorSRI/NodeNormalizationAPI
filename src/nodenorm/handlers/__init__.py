@@ -15,6 +15,8 @@ def build_handlers() -> dict[str, tuple[str, Callable]]:
     from nodenorm.handlers.set_identifiers import SetIdentifierHandler
     from nodenorm.handlers.version import VersionHandler
 
+    # Patterns are regexes matched against the path alone (query strings never reach them), so
+    # don't end one with "?": that makes its last character optional. Escape any literal dot.
     handler_collection = [
         (r"/get_allowed_conflations", ValidConflationsHandler),
         (r"/get_normalized_nodes", NormalizedNodesHandler),
