@@ -307,7 +307,7 @@
             }
           },
           "400": {
-            "description": "The body is empty"
+            "description": "The body is not a non-empty JSON array of objects"
           }
         }
       }

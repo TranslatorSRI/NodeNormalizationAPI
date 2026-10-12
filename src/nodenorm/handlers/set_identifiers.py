@@ -54,7 +54,15 @@ class SetIdentifierHandler(NodeNormalizationBaseHandler):
         self.finish(set_identifiers)
 
     async def post(self):
-        post_body: list[dict] = json.loads(self.request.body)
+        try:
+            post_body: list[dict] = json.loads(self.request.body)
+        except json.JSONDecodeError as error:
+            raise HTTPError(detail=f"The body is not valid JSON: {error}", status_code=400)
+        if not isinstance(post_body, list) or not all(isinstance(group, dict) for group in post_body):
+            raise HTTPError(
+                detail='The body must be a JSON array of sets, such as [{"curies": ["MESH:D014867"]}]',
+                status_code=400,
+            )
         if len(post_body) == 0:
             raise HTTPError(
                 detail="Missing JSON body, there must be at least one curie to generate a set identifier",
