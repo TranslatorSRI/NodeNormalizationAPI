@@ -32,8 +32,8 @@ a Translator's standard KP (Knowledge Provider) API.
 ## OpenAPI document
 
 The API is described by `src/nodenorm/webapp/openapi.json`, which is written by hand and served
-verbatim at `/webapp/openapi.json` (with `/openapi.json` redirecting there); the Swagger UI at `/`
-renders it. `/status` reports its `info.version` as the API version, so bump that when the API
+verbatim at `/openapi.json`, as NodeNorm Redis and most Translator services serve theirs, and also
+at the older `/webapp/openapi.json`; the Swagger UI at `/` renders it. `/status` reports its `info.version` as the API version, so bump that when the API
 changes. `tests/test_openapi.py` checks that the document validates and that its paths, methods,
 query parameters, POST body fields and the `SetIDResponse` schema match the handlers, so a handler
 change that isn't reflected in the JSON fails the test suite. The parameter and body checks find
