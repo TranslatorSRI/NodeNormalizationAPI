@@ -157,8 +157,8 @@ class TestSetIDErrors(AsyncHTTPTestCase):
 
         assert response.code == 200
         result = json.loads(response.body)
-        jsonschema.validate(result["0"], SPEC["components"]["schemas"]["SetIDResponse"])
-        assert "Bogus" in result["0"]["error"]
+        jsonschema.validate(result[0], SPEC["components"]["schemas"]["SetIDResponse"])
+        assert "Bogus" in result[0]["error"]
 
     def test_post_answers_a_set_with_no_curies(self):
         # The other early return in generate_setid(); it too used to return the dataclass (HTTP 500).
@@ -168,8 +168,8 @@ class TestSetIDErrors(AsyncHTTPTestCase):
 
         assert response.code == 200
         result = json.loads(response.body)
-        jsonschema.validate(result["0"], SPEC["components"]["schemas"]["SetIDResponse"])
-        assert result["0"]["normalized_curies"] == [] and result["0"]["setid"] is None
+        jsonschema.validate(result[0], SPEC["components"]["schemas"]["SetIDResponse"])
+        assert result[0]["normalized_curies"] == [] and result[0]["setid"] is None
 
     def test_post_rejects_a_body_that_is_not_an_array_of_objects(self):
         # A single object was the documented body before; it used to fail with a 500.
@@ -272,3 +272,35 @@ class TestNormalizedNodesFlags(AsyncHTTPTestCase):
         # Each of these used to fail with a 500.
         for body in ('["MESH:D014867"]', "not json", b'{"curies": ["\xff"]}'):
             assert self.fetch("/get_normalized_nodes", method="POST", body=body).code == 400, body
+
+
+async def fake_generate_setid(biothings, curies, conflations):
+    return dataclasses.asdict(SetIDResponse(curies=curies, conflations=conflations, normalized_curies=sorted(curies)))
+
+
+class TestSetIdentifierPost(AsyncHTTPTestCase):
+    """Regression: POST returned an index-keyed object because Tornado refused to write a list."""
+
+    def setUp(self):
+        # Patched per test and undone afterwards: assigning the module attribute instead would leak
+        # the fake into tests/test_set_identifiers.py whenever pytest-randomly runs it later.
+        patcher = mock.patch("nodenorm.handlers.set_identifiers.generate_setid", fake_generate_setid)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        super().setUp()
+
+    def get_app(self) -> tornado.web.Application:
+        app = tornado.web.Application([(r"/get_setid", SetIdentifierHandler)])
+        app.biothings = None
+        return app
+
+    def test_returns_one_response_per_set_as_a_list(self):
+        sets = [{"curies": ["MESH:D014867"]}, {"curies": ["NCIT:C34373"], "conflations": ["GeneProtein"]}]
+        response = self.fetch("/get_setid", method="POST", body=json.dumps(sets))
+
+        assert response.code == 200
+        assert response.headers["Content-Type"].startswith("application/json")
+        body = json.loads(response.body)
+        assert isinstance(body, list) and [r["curies"] for r in body] == [s["curies"] for s in sets]
+        for result in body:
+            jsonschema.validate(result, SPEC["components"]["schemas"]["SetIDResponse"])
