@@ -28,3 +28,14 @@ https://github.com/biothings/biothings_explorer/blob/main/docs/README-maintainin
 The documentation is maintained at the [biothings_explorer](https://github.com/biothings/biothings_explorer) repository,
 as each knowledgebase API will be integrated into the [BioThings Explorer application](https://explorer.biothings.io) become
 a Translator's standard KP (Knowledge Provider) API.
+
+## Configuration
+
+Settings are read from `src/nodenorm/config/config.default.json`, which is set up for local
+development (Elasticsearch on localhost, Tornado debug mode on, telemetry off). A file passed
+with `--conf` is laid over it section by section, so it only needs the keys it changes. The
+Docker image passes `docker/configuration/config.json`, which holds the deployment's own
+settings: the in-cluster Elasticsearch host, telemetry on, and debug mode off (in debug mode
+Tornado puts tracebacks in its error pages). `tests/test_configuration.py` checks that file
+names no setting the default lacks. The app reads none of these settings from environment
+variables, so the Helm chart doesn't set any.
