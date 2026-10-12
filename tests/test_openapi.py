@@ -45,10 +45,14 @@ def test_every_route_is_documented_and_every_documented_path_is_routed():
     assert set(SPEC["paths"]) == set(API_HANDLERS)
 
 
+# Every method Tornado routes except OPTIONS, which the base handler answers for CORS preflight.
+HTTP_METHODS = {method.lower() for method in tornado.web.RequestHandler.SUPPORTED_METHODS} - {"options"}
+
+
 def test_documented_methods_match_the_handlers():
     for path, handler in API_HANDLERS.items():
-        documented = {method for method in SPEC["paths"][path] if method in ("get", "post")}
-        implemented = {method for method in ("get", "post") if method in vars(handler)}
+        documented = set(SPEC["paths"][path]) & HTTP_METHODS
+        implemented = {method for method in HTTP_METHODS if method in vars(handler)}
         assert documented == implemented, path
 
 
@@ -121,6 +125,9 @@ class TestAllowedConflations(AsyncHTTPTestCase):
         body = json.loads(response.body)
         jsonschema.validate(body, SPEC["components"]["schemas"]["ConflationList"])
         assert {"GeneProtein", "DrugChemical"} <= set(body["conflations"])
+
+    def test_head_is_answered(self):
+        assert self.fetch("/get_allowed_conflations", method="HEAD").code == 200
 
 
 class TestSetIDErrors(AsyncHTTPTestCase):

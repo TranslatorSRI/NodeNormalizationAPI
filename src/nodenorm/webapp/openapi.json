@@ -359,6 +359,15 @@
             }
           }
         }
+      },
+      "head": {
+        "summary": "Check that the list of named conflations is available.",
+        "tags": ["metadata"],
+        "description": "The headers of `GET /get_allowed_conflations`, without the body.",
+        "operationId": "get_allowed_conflations_head",
+        "responses": {
+          "200": {"description": "The conflation list is available"}
+        }
       }
     }
   },
