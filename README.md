@@ -35,5 +35,7 @@ The API is described by `src/nodenorm/webapp/openapi.json`, which is written by 
 verbatim at `/webapp/openapi.json` (with `/openapi.json` redirecting there); the Swagger UI at `/`
 renders it. `/status` reports its `info.version` as the API version, so bump that when the API
 changes. `tests/test_openapi.py` checks that the document validates and that its paths, methods,
-query parameters and the `SetIDResponse` schema match the handlers, so a handler change that
-isn't reflected in the JSON fails the test suite.
+query parameters, POST body fields and the `SetIDResponse` schema match the handlers, so a handler
+change that isn't reflected in the JSON fails the test suite. The parameter and body checks find
+what a handler reads by scanning its source for `get_argument("…")` and `.get("…")` calls with a
+literal name, so read new parameters and body fields that way.

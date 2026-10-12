@@ -52,9 +52,31 @@ def test_documented_methods_match_the_handlers():
 
 
 def test_documented_query_parameters_match_the_handlers():
+    # The whole class, not just get(), so a parameter read in a helper method still counts.
     for path, handler in API_HANDLERS.items():
         documented = {p["name"] for p in SPEC["paths"][path]["get"].get("parameters", []) if p["in"] == "query"}
-        implemented = set(re.findall(r'get_arguments?\("(\w+)"', inspect.getsource(handler.get)))
+        implemented = set(re.findall(r'get_arguments?\("(\w+)"', inspect.getsource(handler)))
+        assert documented == implemented, path
+
+
+def resolve(schema: dict) -> dict:
+    """Follow a local $ref, and an array to its items, down to the object schema of one body item."""
+    if "$ref" in schema:
+        return resolve(SPEC["components"]["schemas"][schema["$ref"].rsplit("/", 1)[-1]])
+    if schema.get("type") == "array":
+        return resolve(schema["items"])
+    return schema
+
+
+def test_documented_request_bodies_match_the_handlers():
+    # post() reads each body field with .get("field", default), whether the body is one object
+    # (get_normalized_nodes) or a list of them (get_setid).
+    posting = {path: handler for path, handler in API_HANDLERS.items() if "post" in vars(handler)}
+    assert posting, "no handler defines post()"
+    for path, handler in posting.items():
+        body_schema = SPEC["paths"][path]["post"]["requestBody"]["content"]["application/json"]["schema"]
+        documented = set(resolve(body_schema)["properties"])
+        implemented = set(re.findall(r'\.get\("(\w+)"', inspect.getsource(handler.post)))
         assert documented == implemented, path
 
 
