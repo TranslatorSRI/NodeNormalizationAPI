@@ -63,6 +63,22 @@ def test_setid_response_schema_matches_the_dataclass():
     assert documented == {field.name for field in dataclasses.fields(SetIDResponse)}
 
 
+class TestOpenAPIRedirect(AsyncHTTPTestCase):
+    """/openapi.json is where NodeNorm Redis, SmartAPI and Babel Validation look for the document."""
+
+    def get_app(self) -> tornado.web.Application:
+        return tornado.web.Application(list(build_handlers().values()))
+
+    def test_openapi_json_redirects_to_the_document(self):
+        response = self.fetch("/openapi.json", follow_redirects=False)
+
+        assert response.code == 301
+        assert response.headers["Location"] == "/webapp/openapi.json"
+
+    def test_only_the_exact_path_redirects(self):
+        assert self.fetch("/openapiXjson", follow_redirects=False).code == 404
+
+
 class TestAllowedConflations(AsyncHTTPTestCase):
     """Regression: this endpoint returned HTTP 500 because it finished a bare list."""
 
