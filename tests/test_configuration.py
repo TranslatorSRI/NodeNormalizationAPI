@@ -52,10 +52,13 @@ def test_deployment_configuration_only_names_settings_the_default_has():
     assert keys(deployment) <= keys(default)
 
 
-def test_deployment_configuration_is_complete():
+def test_deployment_configuration_is_complete_and_not_in_debug_mode():
     default = vars(load())
     deployed = vars(load(str(DEPLOYMENT_CONFIGURATION)))
 
     assert keys(deployed) == keys(default)
+    # Tornado's debug mode serves tracebacks in error pages and reloads on file changes.
+    assert deployed["webserver"]["SETTINGS"]["debug"] is False
+    assert deployed["webserver"]["SETTINGS"]["autoreload"] is False
     assert deployed["elasticsearch"]["ES_HOST"] != default["elasticsearch"]["ES_HOST"]
     assert deployed["telemetry"]["OPENTELEMETRY_ENABLED"] is True

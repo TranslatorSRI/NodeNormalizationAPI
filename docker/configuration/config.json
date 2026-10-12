@@ -1,4 +1,10 @@
 {
+    "webserver": {
+        "SETTINGS": {
+            "debug": false,
+            "autoreload": false
+        }
+    },
     "elasticsearch": {
         "ES_HOST": "http://elasticsearch.es-core-components.svc.cluster.local:9200"
     },
