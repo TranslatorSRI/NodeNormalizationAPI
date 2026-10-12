@@ -24,7 +24,7 @@ from nodenorm.handlers import build_handlers
 from nodenorm.handlers.base import NodeNormalizationBaseHandler
 from nodenorm.handlers.conflations import ValidConflationsHandler
 from nodenorm.handlers.semantic_types import SemanticTypeHandler
-from nodenorm.handlers.set_identifiers import SetIDResponse
+from nodenorm.handlers.set_identifiers import SetIdentifierHandler, SetIDResponse
 
 SPEC = json.loads((importlib.resources.files(nodenorm) / "webapp" / "openapi.json").read_text(encoding="utf-8"))
 
@@ -114,6 +114,34 @@ class TestAllowedConflations(AsyncHTTPTestCase):
         body = json.loads(response.body)
         jsonschema.validate(body, SPEC["components"]["schemas"]["ConflationList"])
         assert {"GeneProtein", "DrugChemical"} <= set(body["conflations"])
+
+
+class TestSetIDErrors(AsyncHTTPTestCase):
+    """Answers that /get_setid gives without reaching Elasticsearch."""
+
+    def get_app(self) -> tornado.web.Application:
+        app = tornado.web.Application([(r"/get_setid", SetIdentifierHandler)])
+        app.biothings = SimpleNamespace()
+        return app
+
+    def test_get_reports_an_unknown_conflation(self):
+        # Regression: generate_setid() returned the dataclass itself here, which Tornado can't write (HTTP 500).
+        response = self.fetch("/get_setid?curie=MESH:D014867&conflation=Bogus")
+
+        assert response.code == 200
+        body = json.loads(response.body)
+        jsonschema.validate(body, SPEC["components"]["schemas"]["SetIDResponse"])
+        assert "Bogus" in body["error"]
+        assert body["setid"] is None
+
+    def test_post_reports_an_unknown_conflation(self):
+        body = json.dumps([{"curies": ["MESH:D014867"], "conflations": ["Bogus"]}])
+        response = self.fetch("/get_setid", method="POST", body=body)
+
+        assert response.code == 200
+        result = json.loads(response.body)
+        jsonschema.validate(result["0"], SPEC["components"]["schemas"]["SetIDResponse"])
+        assert "Bogus" in result["0"]["error"]
 
 
 class FakeElasticsearch:

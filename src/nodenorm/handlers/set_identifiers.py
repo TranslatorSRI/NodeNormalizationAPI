@@ -84,7 +84,7 @@ async def generate_setid(
     :param biothings_metadata: BiothingsNamepspace object containing configuration information
     :param curies: A list of curies to generate a set ID for.
     :param conflations: A list of conflations to apply. Must be one or both of 'GeneProtein' and 'DrugChemical'.
-    :return: A SetIDResponse with the Set ID.
+    :return: A SetIDResponse with the Set ID, as a dict: Tornado can only write dicts, not dataclasses.
     """
 
     # Step 0. Prepare the SetIDResponse by filling it with the arguments.
@@ -98,7 +98,7 @@ async def generate_setid(
             "Conflations provided to "
             + f"generate_setid() are {conflations}, but only 'GeneProtein' and 'DrugChemical' are allowed."
         )
-        return response
+        return dataclasses.asdict(response)
 
     # We use get_normalized_nodes() to normalize all the CURIEs for us.
     normalization_results = await get_normalized_nodes(
@@ -140,7 +140,7 @@ async def generate_setid(
 
     # Do we have any normalized CURIEs? If not, return now.
     if not sorted_normalized_curies:
-        return response
+        return dataclasses.asdict(response)
 
     normalized_string = "||".join(sorted_normalized_curies)
     response.normalized_string = normalized_string
