@@ -15,6 +15,7 @@ import re
 from types import SimpleNamespace
 
 import jsonschema
+import pytest
 import tornado.web
 from openapi_spec_validator import validate
 from tornado.testing import AsyncHTTPTestCase
@@ -24,6 +25,7 @@ from nodenorm.handlers import build_handlers
 from nodenorm.handlers.base import NodeNormalizationBaseHandler
 from nodenorm.handlers.conflations import ValidConflationsHandler
 from nodenorm.handlers.health import NodeNormHealthHandler
+from nodenorm.handlers.normalized_nodes import NormalizedNodesHandler, parse_boolean
 from nodenorm.handlers.semantic_types import SemanticTypeHandler
 from nodenorm.handlers.set_identifiers import SetIdentifierHandler, SetIDResponse
 
@@ -219,3 +221,37 @@ class TestStatusWithoutElasticsearch(AsyncHTTPTestCase):
             body, SPEC["paths"]["/status"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
         )
         assert body["status"] == "error"
+
+
+@pytest.mark.parametrize("value", [True, "true", "TRUE", "1", "yes", "on", "t", "Y"])
+def test_true_flags(value):
+    assert parse_boolean("conflate", value) is True
+
+
+@pytest.mark.parametrize("value", [False, "false", "False", "0", "no", "off", "f", "N"])
+def test_false_flags(value):
+    assert parse_boolean("conflate", value) is False
+
+
+@pytest.mark.parametrize("value", ["", "maybe", "2", None, 0])
+def test_other_flags_are_rejected(value):
+    # Regression: anything but "false" used to mean true, so conflate=0 turned conflation on.
+    with pytest.raises(tornado.web.HTTPError) as raised:
+        parse_boolean("conflate", value)
+    assert raised.value.status_code == 400
+
+
+class TestNormalizedNodesFlags(AsyncHTTPTestCase):
+    """A flag that isn't a boolean is rejected before Elasticsearch is queried."""
+
+    def get_app(self) -> tornado.web.Application:
+        app = tornado.web.Application([(r"/get_normalized_nodes", NormalizedNodesHandler)])
+        app.biothings = SimpleNamespace()
+        return app
+
+    def test_get_rejects_a_flag_that_is_not_a_boolean(self):
+        assert self.fetch("/get_normalized_nodes?curie=MESH:D014867&conflate=maybe").code == 400
+
+    def test_post_rejects_a_flag_that_is_not_a_boolean(self):
+        body = json.dumps({"curies": ["MESH:D014867"], "conflate": "maybe"})
+        assert self.fetch("/get_normalized_nodes", method="POST", body=body).code == 400

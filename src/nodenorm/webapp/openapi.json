@@ -136,7 +136,7 @@
       "get": {
         "summary": "Get the equivalent identifiers and semantic types for the curie(s) entered.",
         "tags": ["translator"],
-        "description": "Returns the equivalent identifiers and semantic types for the curie(s). Each input CURIE maps to a normalized node, or to `null` if it is unknown.",
+        "description": "Returns the equivalent identifiers and semantic types for the curie(s). Each input CURIE maps to a normalized node, or to `null` if it is unknown. The boolean flags accept `true`/`false`, `1`/`0`, `yes`/`no`, `on`/`off`, `t`/`f` and `y`/`n`, in any case; any other value is a 400.",
         "operationId": "get_normalized_nodes_get",
         "parameters": [
           {
@@ -191,7 +191,7 @@
             }
           },
           "400": {
-            "description": "No `curie` parameter was supplied"
+            "description": "No `curie` parameter was supplied, or a flag is not a boolean"
           }
         }
       },
@@ -219,7 +219,7 @@
             }
           },
           "400": {
-            "description": "The body has no `curies`"
+            "description": "The body has no `curies`, or a flag is not a boolean"
           }
         }
       }
