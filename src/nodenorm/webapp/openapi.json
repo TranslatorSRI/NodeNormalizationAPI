@@ -21,6 +21,12 @@
   },
   "servers": [
     {
+      "description": "Production",
+      "url": "https://nodenorm-es.transltr.io/",
+      "x-maturity": "production",
+      "x-location": "ITRB"
+    },
+    {
       "description": "Continuous integration",
       "url": "https://nodenorm-es.ci.transltr.io/",
       "x-maturity": "staging",
