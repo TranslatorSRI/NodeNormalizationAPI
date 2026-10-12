@@ -177,11 +177,11 @@ class TestBabelEndpoints(AsyncHTTPTestCase):
         )
         body = self.assert_selected_release(response, OLD_VERSION)
 
-        assert set(body) == {"0", "1"}
-        assert body["0"]["normalized_curies"] == ["OLD:1", "OLD:2"]
-        assert body["0"]["normalized_string"] == "OLD:1||OLD:2"
-        assert body["1"]["normalized_curies"] == ["OLD:P2"]
-        assert body["1"]["conflations"] == ["GeneProtein"]
+        assert len(body) == 2
+        assert body[0]["normalized_curies"] == ["OLD:1", "OLD:2"]
+        assert body[0]["normalized_string"] == "OLD:1||OLD:2"
+        assert body[1]["normalized_curies"] == ["OLD:P2"]
+        assert body[1]["conflations"] == ["GeneProtein"]
         assert len(self.client.calls) == 3
         assert all(operation == "msearch" and call["index"] == [OLD_INDEX] for operation, call in self.client.calls)
         assert self.namespace.elasticsearch.indices == [DEFAULT_INDEX]
@@ -195,7 +195,7 @@ class TestBabelEndpoints(AsyncHTTPTestCase):
         )
 
         body = self.assert_selected_release(response, DEFAULT_VERSION)
-        assert body["0"]["normalized_curies"] == ["NEW:1"]
+        assert body[0]["normalized_curies"] == ["NEW:1"]
 
     def test_setid_rejects_unsupported_release_before_lookup(self):
         self.assert_unsupported(self.fetch("/get_setid?curie=INPUT:1&babel_version=unknown"))

@@ -70,18 +70,14 @@ class SetIdentifierHandler(NodeNormalizationBaseHandler):
 
         release = self.select_babel_release(self.get_query_argument("babel_version", None))
 
-        # We have to make a minor change to the API to ensure we're avoiding a security concern
-        # enforced by tornado, so we return a dictionary here instead of a list
-        set_identifiers = {}
-        for index, group in enumerate(post_body):
+        # One SetIDResponse per input set, in order, as NodeNorm Redis returns.
+        set_identifiers = []
+        for group in post_body:
             curies = group.get("curies", [])
             conflations = group.get("conflations", [])
-            set_identifiers[index] = await generate_setid(
-                self.biothings, curies, conflations, search_indices=release.search_indices
+            set_identifiers.append(
+                await generate_setid(self.biothings, curies, conflations, search_indices=release.search_indices)
             )
-
-        if not set_identifiers:
-            raise HTTPError(detail="Error occurred during processing.", status_code=500)
 
         self.finish(set_identifiers)
 

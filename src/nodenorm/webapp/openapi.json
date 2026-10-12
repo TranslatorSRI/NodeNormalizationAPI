@@ -411,7 +411,7 @@
       "post": {
         "summary": "Normalize and deduplicate several sets of identifiers and return a hash for each set.",
         "tags": ["translator"],
-        "description": "Returns one set ID per input set, keyed by the set's position in the request as a string (\"0\", \"1\", ...). Select one Babel release for the entire batch with the optional babel_version query parameter.",
+        "description": "Returns one set ID per input set, in the order the sets were given. Select one Babel release for the entire batch with the optional babel_version query parameter.",
         "operationId": "get_setid_post",
         "requestBody": {
           "required": true,
@@ -434,12 +434,12 @@
         },
         "responses": {
           "200": {
-            "description": "One set ID per input set, keyed by its index",
+            "description": "One set ID per input set",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "additionalProperties": {"$ref": "#/components/schemas/SetIDResponse"}
+                  "type": "array",
+                  "items": {"$ref": "#/components/schemas/SetIDResponse"}
                 }
               }
             },

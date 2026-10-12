@@ -95,9 +95,9 @@ class TestSetIdentifierHandlerPost(AsyncHTTPTestCase):
         response = yield http_client.fetch(url, self.stop, method="POST", headers=headers, body=body, request_timeout=0)
         body = json.loads(response.body.decode("utf-8"))
 
-        # One SetIDResponse per input set, keyed by the set's index in the request.
-        expected_body = {
-            "0": {
+        # One SetIDResponse per input set, as a list (matching NodeNorm Redis).
+        expected_body = [
+            {
                 "curies": ["MESH:D014867", "NCIT:C34373", "UNII:63M8RYN44N", "RUBBISH:1234"],
                 "conflations": ["GeneProtein", "DrugChemical"],
                 "error": None,
@@ -105,5 +105,5 @@ class TestSetIdentifierHandlerPost(AsyncHTTPTestCase):
                 "normalized_string": "CHEBI:15377||MONDO:0004976||RUBBISH:1234",
                 "setid": "uuid:771d3c09-9a8c-5c46-8b85-97f481a90d40",
             }
-        }
+        ]
         assert json.loads(response.body.decode("utf-8")) == expected_body
