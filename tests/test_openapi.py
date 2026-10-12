@@ -70,14 +70,15 @@ def resolve(schema: dict) -> dict:
 
 
 def test_documented_request_bodies_match_the_handlers():
-    # post() reads each body field with .get("field", default), whether the body is one object
-    # (get_normalized_nodes) or a list of them (get_setid).
+    # Body fields are read with .get("field", default), whether the body is one object
+    # (get_normalized_nodes) or a list of them (get_setid). Like the query-parameter check, this
+    # scans the whole class, so a field read in a helper method still counts.
     posting = {path: handler for path, handler in API_HANDLERS.items() if "post" in vars(handler)}
     assert posting, "no handler defines post()"
     for path, handler in posting.items():
         body_schema = SPEC["paths"][path]["post"]["requestBody"]["content"]["application/json"]["schema"]
         documented = set(resolve(body_schema)["properties"])
-        implemented = set(re.findall(r'\.get\("(\w+)"', inspect.getsource(handler.post)))
+        implemented = set(re.findall(r'\.get\("(\w+)"', inspect.getsource(handler)))
         assert documented == implemented, path
 
 
