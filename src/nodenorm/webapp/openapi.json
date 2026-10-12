@@ -54,7 +54,7 @@
       "get": {
         "summary": "Status information on this NodeNorm instance",
         "tags": ["health"],
-        "description": "Returns information about this NodeNorm instance, the Babel release it serves and the Elasticsearch cluster backing it. `status` is `error` when the Elasticsearch cluster cannot be reached.",
+        "description": "Returns information about this NodeNorm instance, the Babel release it serves and the Elasticsearch cluster backing it. `status` is `error` when the Elasticsearch cluster cannot be reached; `babel_version` and `babel_version_url` are then `null` if the index could not be read.",
         "operationId": "status",
         "responses": {
           "200": {
@@ -66,8 +66,8 @@
                   "properties": {
                     "status": {"type": "string", "enum": ["running", "error"]},
                     "version": {"type": "string", "description": "The `info.version` of this OpenAPI document"},
-                    "babel_version": {"type": "string", "description": "The Babel release loaded into the index"},
-                    "babel_version_url": {"type": "string", "format": "uri", "description": "Release notes for that Babel release"},
+                    "babel_version": {"type": ["string", "null"], "description": "The Babel release loaded into the index"},
+                    "babel_version_url": {"type": ["string", "null"], "format": "uri", "description": "Release notes for that Babel release"},
                     "backend": {"type": "string", "enum": ["elasticsearch"]},
                     "biolink_model_toolkit_version": {"type": "string"},
                     "elasticsearch": {"type": "object", "description": "Per-node statistics from the cluster's `_cat/nodes`"}

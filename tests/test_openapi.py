@@ -23,6 +23,7 @@ import nodenorm
 from nodenorm.handlers import build_handlers
 from nodenorm.handlers.base import NodeNormalizationBaseHandler
 from nodenorm.handlers.conflations import ValidConflationsHandler
+from nodenorm.handlers.health import NodeNormHealthHandler
 from nodenorm.handlers.semantic_types import SemanticTypeHandler
 from nodenorm.handlers.set_identifiers import SetIdentifierHandler, SetIDResponse
 
@@ -175,3 +176,33 @@ class TestSemanticTypes(AsyncHTTPTestCase):
         types = body["semantic_types"]["types"]
         assert "biolink:Disease" in types and "biolink:NamedThing" in types
         assert all(re.fullmatch(r"biolink:[A-Z][A-Za-z]*", t) for t in types), types
+
+
+class UnreachableElasticsearch:
+    """An AsyncElasticsearch whose cluster is down."""
+
+    class indices:
+        @staticmethod
+        async def get_mapping(**kwargs):
+            raise ConnectionError("cluster unreachable")
+
+
+class TestStatusWithoutElasticsearch(AsyncHTTPTestCase):
+    """Regression: the index mapping was read outside the try, so a down cluster gave a 500, not status=error."""
+
+    def get_app(self) -> tornado.web.Application:
+        app = tornado.web.Application([(r"/status", NodeNormHealthHandler)])
+        app.biothings = SimpleNamespace(
+            elasticsearch=SimpleNamespace(indices="nodenorm", async_client=UnreachableElasticsearch())
+        )
+        return app
+
+    def test_status_is_error(self):
+        response = self.fetch("/status")
+
+        assert response.code == 200
+        body = json.loads(response.body)
+        jsonschema.validate(
+            body, SPEC["paths"]["/status"]["get"]["responses"]["200"]["content"]["application/json"]["schema"]
+        )
+        assert body["status"] == "error"
