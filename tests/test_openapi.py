@@ -171,17 +171,19 @@ def test_setid_response_schema_matches_the_dataclass():
     assert documented == {field.name for field in dataclasses.fields(SetIDResponse)}
 
 
-class TestOpenAPIRedirect(AsyncHTTPTestCase):
-    """/openapi.json is where NodeNorm Redis, SmartAPI and Babel Validation look for the document."""
+class TestOpenAPIAddresses(AsyncHTTPTestCase):
+    """/openapi.json is where NodeNorm Redis serves its document; /webapp/openapi.json is the older address."""
 
     def get_app(self) -> tornado.web.Application:
         return tornado.web.Application(list(build_handlers().values()))
 
-    def test_openapi_json_redirects_to_the_document(self):
-        response = self.fetch("/openapi.json", follow_redirects=False)
+    def test_the_document_is_served_at_both_addresses(self):
+        for path in ("/openapi.json", "/webapp/openapi.json"):
+            response = self.fetch(path, follow_redirects=False)
 
-        assert response.code == 301
-        assert response.headers["Location"] == "/webapp/openapi.json"
+            assert response.code == 200, path
+            assert response.headers["Content-Type"].startswith("application/json"), path
+            assert json.loads(response.body) == SPEC, path
 
     def test_served_document_is_valid_openapi(self):
         # test_document_is_valid_openapi() reads the file; this checks what the static route serves.
@@ -191,7 +193,7 @@ class TestOpenAPIRedirect(AsyncHTTPTestCase):
         assert response.headers["Content-Type"].startswith("application/json")
         validate(json.loads(response.body))
 
-    def test_only_the_exact_path_redirects(self):
+    def test_only_the_exact_path_matches(self):
         assert self.fetch("/openapiXjson", follow_redirects=False).code == 404
 
     def test_api_paths_are_matched_exactly(self):

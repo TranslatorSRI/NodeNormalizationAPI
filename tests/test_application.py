@@ -140,7 +140,7 @@ class TestApplicationRoutes(AsyncHTTPTestCase):
         assert response.code == 200
         assert response.headers["Content-Type"].startswith("text/html")
         assert b"SwaggerUIBundle" in response.body
-        assert b"/webapp/openapi.json" in response.body
+        assert b'url: "/openapi.json"' in response.body
 
     def test_webapp_serves_openapi_spec(self):
         response = self.fetch("/webapp/openapi.json")
