@@ -1,7 +1,6 @@
 # set_id.py
 # Code related to generating IDs for sets (as in https://github.com/TranslatorSRI/NodeNormalization/issues/256).
 import dataclasses
-import json
 import logging
 import uuid
 from typing import Optional
@@ -54,10 +53,7 @@ class SetIdentifierHandler(NodeNormalizationBaseHandler):
         self.finish(set_identifiers)
 
     async def post(self):
-        try:
-            post_body: list[dict] = json.loads(self.request.body)
-        except json.JSONDecodeError as error:
-            raise HTTPError(detail=f"The body is not valid JSON: {error}", status_code=400)
+        post_body: list[dict] = self.load_json_body()
         if not isinstance(post_body, list) or not all(isinstance(group, dict) for group in post_body):
             raise HTTPError(
                 detail='The body must be a JSON array of sets, such as [{"curies": ["MESH:D014867"]}]',
