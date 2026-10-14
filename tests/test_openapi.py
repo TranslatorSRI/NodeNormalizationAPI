@@ -173,7 +173,14 @@ class TestSetIDErrors(AsyncHTTPTestCase):
 
     def test_post_rejects_a_body_that_is_not_an_array_of_objects(self):
         # A single object was the documented body before; it used to fail with a 500.
-        for body in ('{"curies": ["MESH:D014867"]}', '["MESH:D014867"]', "[]", "not json", b'[{"curies": ["\xff"]}]'):
+        for body in (
+            '{"curies": ["MESH:D014867"]}',
+            '["MESH:D014867"]',
+            "[]",
+            "not json",
+            "",
+            b'[{"curies": ["\xff"]}]',
+        ):
             assert self.fetch("/get_setid", method="POST", body=body).code == 400, body
 
 
