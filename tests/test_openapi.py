@@ -267,3 +267,8 @@ class TestNormalizedNodesFlags(AsyncHTTPTestCase):
     def test_post_rejects_a_flag_that_is_not_a_boolean(self):
         body = json.dumps({"curies": ["MESH:D014867"], "conflate": "maybe"})
         assert self.fetch("/get_normalized_nodes", method="POST", body=body).code == 400
+
+    def test_post_rejects_a_body_that_is_not_a_json_object(self):
+        # Each of these used to fail with a 500.
+        for body in ('["MESH:D014867"]', "not json", b'{"curies": ["\xff"]}'):
+            assert self.fetch("/get_normalized_nodes", method="POST", body=body).code == 400, body

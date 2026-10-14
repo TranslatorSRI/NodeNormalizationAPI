@@ -1,5 +1,4 @@
 import dataclasses
-import json
 import logging
 import time
 from typing import Optional, Union
@@ -146,7 +145,11 @@ class NormalizedNodesHandler(NodeNormalizationBaseHandler):
           }
         }
         """
-        post_body: dict = json.loads(self.request.body)
+        post_body: dict = self.load_json_body()
+        if not isinstance(post_body, dict):
+            raise HTTPError(
+                detail='The body must be a JSON object, such as {"curies": ["MESH:D014867"]}', status_code=400
+            )
         normalization_curies = post_body.get("curies", [])
         if len(normalization_curies) == 0:
             raise HTTPError(

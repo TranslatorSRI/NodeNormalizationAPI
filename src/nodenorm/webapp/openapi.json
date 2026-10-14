@@ -225,7 +225,7 @@
             }
           },
           "400": {
-            "description": "The body has no `curies`, or a flag is not a boolean"
+            "description": "The body is not a JSON object, has no `curies`, or a flag is not a boolean"
           }
         }
       }
