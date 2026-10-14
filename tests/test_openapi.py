@@ -106,6 +106,14 @@ class TestOpenAPIRedirect(AsyncHTTPTestCase):
         assert response.code == 301
         assert response.headers["Location"] == "/webapp/openapi.json"
 
+    def test_served_document_is_valid_openapi(self):
+        # test_document_is_valid_openapi() reads the file; this checks what the static route serves.
+        response = self.fetch("/openapi.json")
+
+        assert response.code == 200
+        assert response.headers["Content-Type"].startswith("application/json")
+        validate(json.loads(response.body))
+
     def test_only_the_exact_path_redirects(self):
         assert self.fetch("/openapiXjson", follow_redirects=False).code == 404
 
