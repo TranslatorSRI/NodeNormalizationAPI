@@ -8,7 +8,7 @@
       "team": [
         "DOGSURF"
       ],
-      "infores": "infores:sri-node-normalizer"
+      "infores": "infores:nodenorm"
     },
     "contact": {
       "email": "scliu@scripps.edu",
