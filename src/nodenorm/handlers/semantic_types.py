@@ -33,6 +33,10 @@ class SemanticTypeHandler(NodeNormalizationBaseHandler):
         # /get_normalized_nodes reads. Don't add the keys directly: look each one up in the
         # Biolink model (bmt matches case-insensitively) and report its `class_uri`
         # ("biolink:SmallMolecule"). A key the model doesn't know is reported as is.
+        #
+        # These lookups don't need memoizing here: bmt's Toolkit wraps get_element() and
+        # get_ancestors() in functools.lru_cache (1024 entries, more than the model's
+        # classes), so after the first request the loop costs about a millisecond.
         semantic_types = set()
         for bucket in type_aggregation_result.body["aggregations"]["unique_types"]["buckets"]:
             biolink_type = bucket["key"]
