@@ -43,7 +43,14 @@ files. Other settings the deployment leaves out follow the default, so a change 
 production on the next build. `tests/test_configuration.py` checks that the deployment file names no
 setting the default lacks. Apart from `deployment_environment`, which `NODENORM_DEPLOYMENT_ENV`
 overrides (see [below](#reporting-the-deployment-environment)), the app reads none of these settings
-from environment variables, so that is the only one the Helm chart sets.
+from environment variables, so that is the only one the Helm chart sets. Letting the environment
+override the others (the chart used to pass `ES_HOST`, `OPENTELEMETRY_ENABLED` and `PORT`, which the
+app never read) was considered and left out for now: no deployment has needed a different
+Elasticsearch host; `PORT` can't be honoured, since 8000 is Caddy's port and the app runs on 9001
+behind it; and once honoured, an unsubstituted `ES_HOST_VALUE` placeholder or a bare hostname from a
+values file would go live and stop the pod starting. It is a small change in `load_configuration()`
+if the need arises; the question is open in
+[issue #60](https://github.com/biothings/NodeNormalizationAPI/issues/60).
 
 ## Running Node Normalization locally
 
