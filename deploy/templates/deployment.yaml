@@ -28,6 +28,11 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           # The Elasticsearch host, port and telemetry settings come from
           # docker/configuration/config.json, baked into the image; the app reads no env vars for them.
+          env:
+            - name: NODENORM_DEPLOYMENT_ENV
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.labels['gov.nih.ncats.appenv']
           ports:
             - name: http
               containerPort: {{ .Values.containers.port }}

@@ -17,10 +17,10 @@ class SemanticTypeHandler(NodeNormalizationBaseHandler):
     async def get(self) -> dict:
         type_aggregation = {"unique_types": {"terms": {"field": "type", "size": 100}}}
         source_fields = ["type"]
+        release = self.select_babel_release(self.get_query_argument("babel_version", None))
         try:
-            search_indices = self.biothings.elasticsearch.indices
             type_aggregation_result = await self.biothings.elasticsearch.async_client.search(
-                aggregations=type_aggregation, index=search_indices, size=0, source_includes=source_fields
+                aggregations=type_aggregation, index=release.search_indices, size=0, source_includes=source_fields
             )
         except Exception as gen_exc:
             network_error = HTTPError(
@@ -33,7 +33,7 @@ class SemanticTypeHandler(NodeNormalizationBaseHandler):
             biolink_type = bucket["key"]
             semantic_types.add(biolink_type)
             for ancestor in toolkit.get_ancestors(biolink_type):
-                semantic_types.add(toolkit.get_element(ancestor)["class_uri"].lower())
+                semantic_types.add(toolkit.get_element(ancestor)["class_uri"])
 
         semantic_type_response = {"semantic_types": {"types": list(semantic_types)}}
         self.finish(semantic_type_response)

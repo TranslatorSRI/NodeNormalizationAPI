@@ -1,5 +1,4 @@
 import dataclasses
-import json
 import logging
 import time
 from typing import Optional, Union
@@ -25,6 +24,25 @@ class NormalizedNode:
     taxa: list[str]
 
 
+# The strings FastAPI (Pydantic) accepted as booleans in NodeNorm Redis, which this API mirrors.
+TRUE_STRINGS = {"true", "1", "yes", "on", "t", "y"}
+FALSE_STRINGS = {"false", "0", "no", "off", "f", "n"}
+
+
+def parse_boolean(name: str, argument: Union[str, bool]) -> bool:
+    """Read a boolean flag, rejecting values that aren't clearly true or false with HTTP 400."""
+    if isinstance(argument, bool):
+        return argument
+    if isinstance(argument, str):
+        if argument.lower() in TRUE_STRINGS:
+            return True
+        if argument.lower() in FALSE_STRINGS:
+            return False
+    raise HTTPError(
+        detail=f"{name} must be true or false (or 1/0, yes/no, on/off, t/f, y/n), not {argument!r}", status_code=400
+    )
+
+
 class NormalizedNodesHandler(NodeNormalizationBaseHandler):
     """
     Mirror implementation to the renci implementation found at
@@ -42,17 +60,13 @@ class NormalizedNodesHandler(NodeNormalizationBaseHandler):
                 detail="Missing curie argument, there must be at least one curie to normalize", status_code=400
             )
 
-        def parse_boolean(argument: Union[str, bool]) -> bool:
-            if isinstance(argument, bool):
-                return argument
-            if isinstance(argument, str):
-                return not argument.lower() == "false"
-            return False
-
-        conflate = parse_boolean(self.get_argument("conflate", True))
-        drug_chemical_conflate = parse_boolean(self.get_argument("drug_chemical_conflate", False))
-        description = parse_boolean(self.get_argument("description", False))
-        individual_types = parse_boolean(self.get_argument("individual_types", False))
+        conflate = parse_boolean("conflate", self.get_argument("conflate", True))
+        drug_chemical_conflate = parse_boolean(
+            "drug_chemical_conflate", self.get_argument("drug_chemical_conflate", False)
+        )
+        description = parse_boolean("description", self.get_argument("description", False))
+        individual_types = parse_boolean("individual_types", self.get_argument("individual_types", False))
+        release = self.select_babel_release(self.get_query_argument("babel_version", None))
 
         normalized_nodes = await get_normalized_nodes(
             self.biothings,
@@ -61,6 +75,7 @@ class NormalizedNodesHandler(NodeNormalizationBaseHandler):
             drug_chemical_conflate,
             include_descriptions=description,
             include_individual_types=individual_types,
+            search_indices=release.search_indices,
         )
 
         # If curie contains at least one entry, then the only way normalized_nodes could be blank
@@ -76,7 +91,7 @@ class NormalizedNodesHandler(NodeNormalizationBaseHandler):
 
         Example body
         {
-          "curie": [
+          "curies": [
             "MESH:D014867",
             "NCIT:C34373"
           ]
@@ -132,17 +147,26 @@ class NormalizedNodesHandler(NodeNormalizationBaseHandler):
           }
         }
         """
-        post_body: dict = json.loads(self.request.body)
+        post_body: dict = self.load_json_body()
+        if not isinstance(post_body, dict):
+            raise HTTPError(
+                detail='The body must be a JSON object, such as {"curies": ["MESH:D014867"]}', status_code=400
+            )
         normalization_curies = post_body.get("curies", [])
         if len(normalization_curies) == 0:
             raise HTTPError(
                 detail="Missing curie argument, there must be at least one curie to normalize", status_code=400
             )
 
-        conflate = post_body.get("conflate", True)
-        drug_chemical_conflate = post_body.get("drug_chemical_conflate", False)
-        description = post_body.get("description", False)
-        individual_types = post_body.get("individual_types", False)
+        conflate = parse_boolean("conflate", post_body.get("conflate", True))
+        drug_chemical_conflate = parse_boolean("drug_chemical_conflate", post_body.get("drug_chemical_conflate", False))
+        description = parse_boolean("description", post_body.get("description", False))
+        individual_types = parse_boolean("individual_types", post_body.get("individual_types", False))
+        babel_version = post_body.get("babel_version")
+        if "babel_version" in post_body and not isinstance(babel_version, str):
+            supported = ", ".join(self.biothings.elasticsearch.babel.available_versions)
+            raise HTTPError(400, reason=f"babel_version must be a string. Supported releases: {supported}")
+        release = self.select_babel_release(babel_version)
 
         normalized_nodes = await get_normalized_nodes(
             self.biothings,
@@ -151,6 +175,7 @@ class NormalizedNodesHandler(NodeNormalizationBaseHandler):
             drug_chemical_conflate,
             include_descriptions=description,
             include_individual_types=individual_types,
+            search_indices=release.search_indices,
         )
 
         # If curie contains at least one entry, then the only way normalized_nodes could be blank
@@ -168,6 +193,7 @@ async def get_normalized_nodes(
     conflate_chemical_drug: bool = False,
     include_descriptions: bool = False,
     include_individual_types: bool = False,
+    search_indices: Optional[list[str]] = None,
 ) -> dict:
     start_time = time.perf_counter_ns()
 
@@ -176,7 +202,7 @@ async def get_normalized_nodes(
         "DrugChemical": conflate_chemical_drug,
     }
 
-    nodes = await _lookup_curie_metadata(biothings_metadata, curies, conflations)
+    nodes = await _lookup_curie_metadata(biothings_metadata, curies, conflations, search_indices=search_indices)
 
     normal_nodes = {}
     for aggregate_node in nodes:
@@ -333,7 +359,10 @@ def _has_invalid_source_type(result: dict, input_curie: str, stage: str) -> bool
 
 
 async def _lookup_curie_metadata(
-    biothings_metadata: NodeNormalizationAPINamespace, curies: list[str], conflations: dict
+    biothings_metadata: NodeNormalizationAPINamespace,
+    curies: list[str],
+    conflations: dict,
+    search_indices: Optional[list[str]] = None,
 ) -> list[NormalizedNode]:
     """
     Handles the lookup process for the CURIE identifiers within our elasticsearch instance
@@ -342,7 +371,9 @@ async def _lookup_curie_metadata(
     msearch, with one size-1 search per input CURIE. We expect a 1-1 mapping for CURIE
     identifier to document; upstream data processing is responsible for resolving duplicates.
     """
-    identifier_result_lookup, malformed_curies = await _lookup_equivalent_identifiers(biothings_metadata, curies)
+    identifier_result_lookup, malformed_curies = await _lookup_equivalent_identifiers(
+        biothings_metadata, curies, search_indices=search_indices
+    )
 
     nodes = []
     for input_curie in curies:
@@ -394,7 +425,7 @@ async def _lookup_curie_metadata(
 
             if any(conflations.values()) and len(conflation_identifiers) > 0:
                 conflation_result_lookup, malformed_conflation_curies = await _lookup_equivalent_identifiers(
-                    biothings_metadata, conflation_identifiers
+                    biothings_metadata, conflation_identifiers, search_indices=search_indices
                 )
 
                 replacement_identifiers = []
@@ -521,13 +552,16 @@ def unique_list(seq) -> list:
 
 
 async def _lookup_equivalent_identifiers(
-    biothings_metadata: NodeNormalizationAPINamespace, curies: list[str]
+    biothings_metadata: NodeNormalizationAPINamespace,
+    curies: list[str],
+    search_indices: Optional[list[str]] = None,
 ) -> tuple[dict, set]:
     if len(curies) == 0:
         return {}, set()
 
     source_fields = ["identifiers", "type", "ic", "preferred_name", "taxa"]
-    search_indices = biothings_metadata.elasticsearch.indices
+    if search_indices is None:
+        search_indices = biothings_metadata.elasticsearch.indices
 
     searches = []
     for curie in curies:
