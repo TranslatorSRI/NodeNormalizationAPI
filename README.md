@@ -52,6 +52,30 @@ values file would go live and stop the pod starting. It is a small change in `lo
 if the need arises; the question is open in
 [issue #60](https://github.com/biothings/NodeNormalizationAPI/issues/60).
 
+### Checking the deployment image locally
+
+The image clones its code and configuration from `NODENORM_BRANCH`, so push the branch first.
+Build it as Jenkins does, with `docker/` as the context, and run it against an Elasticsearch
+container that answers to the in-cluster hostname and holds one index with Babel metadata behind
+the `annotator-nodenorm` alias (discovery and `/status` read `mappings._meta.src.nodenorm`):
+
+```bash
+docker build -f docker/Dockerfile --build-arg NODENORM_REPO=<your fork> --build-arg NODENORM_BRANCH=<branch> -t nodenorm:check docker/
+docker network create nodenorm-check
+docker run -d --name nodenorm-check-es --network nodenorm-check \
+  --network-alias elasticsearch.es-core-components.svc.cluster.local \
+  -e discovery.type=single-node -e xpack.security.enabled=false docker.elastic.co/elasticsearch/elasticsearch:8.19.3
+# once it answers:
+docker exec nodenorm-check-es curl -s -X PUT localhost:9200/nodenorm_check -H 'Content-Type: application/json' \
+  -d '{"mappings":{"_meta":{"src":{"nodenorm":{"version":"2025sep1"}}}},"aliases":{"annotator-nodenorm":{}}}'
+docker run -d --name nodenorm-check-app --network nodenorm-check -p 127.0.0.1:18000:8000 nodenorm:check
+```
+
+`/status`, `/`, `/version` and `/webapp/openapi.json` should answer 200 and `/openapi.json` redirect
+to the webapp copy. Stopping the Elasticsearch container and requesting
+`/get_normalized_nodes?curie=MESH:D014867` should give a 500 whose body is the bare error page: a
+traceback there means debug mode is on.
+
 ## Running Node Normalization locally
 
 With the project installed in `.venv`, start the server from the repository root:
